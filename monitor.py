@@ -116,14 +116,16 @@ async def diagnose():
             i.app_server_url, token, term_id=term_id, access_key=api.access_key,
             secret_key=api.secret_key, app_name=api._app_name, cloud_type="tapo",
         )
+        ts = int(time.time() * 1000)
         variants = {
-            "get_device_info": {"method": "get_device_info"},
-            "handshake": {"method": "handshake", "params": {"key": "x"}},
-            "get_energy_usage": {"method": "get_energy_usage"},
-            "get_current_power": {"method": "get_current_power"},
-            "multipleRequest": {"method": "multipleRequest",
-                                "params": {"requests": [{"method": "get_energy_usage"}]}},
+            "A plano+params": {"method": "get_device_info", "params": {"requestTimeMils": ts}},
+            "B con terminalUUID": {"method": "get_device_info",
+                                   "params": {"requestTimeMils": ts, "terminalUUID": term_id}},
+            "C securePassthrough": {"method": "securePassthrough", "params": {"request": "AAAA"}},
+            "D multipleRequest": {"method": "multipleRequest", "params": {"requests": [
+                {"method": "get_device_info", "params": None}]}},
         }
+        objeto = {"E requestData objeto": {"method": "get_device_info"}}
         for name, rd in variants.items():
             try:
                 raw = await client._request_post(
@@ -138,6 +140,13 @@ async def diagnose():
                         inner = None
                 print(f"    {name}: error_code={body.get('error_code')} msg={body.get('msg')} "
                       f"campos_respuesta={sorted(inner) if isinstance(inner, dict) else None}")
+            except Exception as e:
+                print(f"    {name}: ERROR {type(e).__name__}")
+        for name, rd in objeto.items():
+            try:
+                raw = await client._request_post(
+                    {"deviceId": i.device_id, "requestData": rd}, url_path="/api/v2/common/passthrough")
+                print(f"    {name}: error_code={raw._response.get('error_code')} msg={raw._response.get('msg')}")
             except Exception as e:
                 print(f"    {name}: ERROR {type(e).__name__}")
 
