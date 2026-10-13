@@ -1,0 +1,53 @@
+name: Aviso lavadora y secadora
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      diagnose:
+        description: "Solo listar dispositivos y mostrar lectura cruda (no envía WhatsApp)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: tapo-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Ejecutar
+        env:
+          TAPO_EMAIL: ${{ secrets.TAPO_EMAIL }}
+          TAPO_PASSWORD: ${{ secrets.TAPO_PASSWORD }}
+          WHATSAPP_RECIPIENTS: ${{ secrets.WHATSAPP_RECIPIENTS }}
+          WASHER_ALIAS: ${{ vars.WASHER_ALIAS }}
+          DRYER_ALIAS: ${{ vars.DRYER_ALIAS }}
+        run: |
+          if [ "${{ inputs.diagnose }}" = "true" ]; then
+            python monitor.py --diagnose
+          else
+            python monitor.py
+          fi
+      - name: Guardar estado si cambió
+        if: ${{ !inputs.diagnose }}
+        run: |
+          if ! git diff --quiet state.json; then
+            git config user.name "tapo-bot"
+            git config user.email "tapo-bot@users.noreply.github.com"
+            git add state.json
+            git commit -m "estado"
+            git push
+          fi
