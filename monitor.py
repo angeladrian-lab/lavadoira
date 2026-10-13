@@ -105,18 +105,39 @@ async def diagnose():
     term_id = os.environ.get("TAPO_TERM_ID", "6b1f3c0e-5d0e-4c53-9a77-1d2f4a0b7c11")
     api = TPLinkApi(cloud_type="tapo", term_id=term_id)
     token = api.login(os.environ["TAPO_EMAIL"], os.environ["TAPO_PASSWORD"])["token"]
+    # Los logs de Actions son públicos: solo se imprimen códigos de error y nombres de campos, nunca valores de dispositivo.
+    wanted = {os.environ.get(c["alias_env"], k).strip().lower() for k, c in APPLIANCES.items()}
     for d in api.get_device_info_list(token):
         i = TPLinkDeviceInfo(d, cloud_type="tapo")
-        print(f"- alias='{_decode_alias(i.alias)}' modelo={i.device_model}")
+        if _decode_alias(i.alias).strip().lower() not in wanted:
+            continue
+        print(f"- dispositivo configurado encontrado, modelo={i.device_model}")
         client = TPLinkDeviceClient(
             i.app_server_url, token, term_id=term_id, access_key=api.access_key,
             secret_key=api.secret_key, app_name=api._app_name, cloud_type="tapo",
         )
-        for method in ("get_energy_usage", "get_current_power"):
+        variants = {
+            "get_energy_usage": {"method": "get_energy_usage"},
+            "get_current_power": {"method": "get_current_power"},
+            "multipleRequest": {"method": "multipleRequest",
+                                "params": {"requests": [{"method": "get_energy_usage"}]}},
+        }
+        for name, rd in variants.items():
             try:
-                print(f"    {method}: {await client.pass_through_request(i.device_id, {'method': method})}")
-            except Exception as e:  # diagnóstico: mostrar cualquier fallo
-                print(f"    {method}: ERROR {e}")
+                raw = await client._request_post(
+                    {"deviceId": i.device_id, "requestData": json.dumps(rd)},
+                    url_path="/api/v2/common/passthrough")
+                body = raw._response
+                inner = body.get("result", {}).get("responseData") if isinstance(body.get("result"), dict) else None
+                if isinstance(inner, str):
+                    try:
+                        inner = json.loads(inner)
+                    except ValueError:
+                        inner = None
+                print(f"    {name}: error_code={body.get('error_code')} msg={body.get('msg')} "
+                      f"campos_respuesta={sorted(inner) if isinstance(inner, dict) else None}")
+            except Exception as e:
+                print(f"    {name}: ERROR {type(e).__name__}")
 
 
 # ---------- WhatsApp (CallMeBot) ----------
