@@ -117,6 +117,8 @@ async def diagnose():
             secret_key=api.secret_key, app_name=api._app_name, cloud_type="tapo",
         )
         variants = {
+            "get_device_info": {"method": "get_device_info"},
+            "handshake": {"method": "handshake", "params": {"key": "x"}},
             "get_energy_usage": {"method": "get_energy_usage"},
             "get_current_power": {"method": "get_current_power"},
             "multipleRequest": {"method": "multipleRequest",
