@@ -1,2 +1,6 @@
 __pycache__/
 *.xls
+.env
+.venv/
+state_local.json
+avisos.log
