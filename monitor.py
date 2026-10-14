@@ -180,6 +180,50 @@ def send_whatsapp(text, link=None):
     return not failures
 
 
+# ---------- Alexa (opcional) ----------
+
+def _ssl_context():
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return None
+
+
+def send_alexa(text):
+    """Avisa por Alexa si hay credenciales en el entorno. Nunca lanza excepciones: un fallo aquí no debe afectar a WhatsApp.
+
+    VOICEMONKEY_TOKEN + VOICEMONKEY_DEVICE: Voice Monkey (habla en voz alta en el Echo; plan gratis = 200 peticiones/mes).
+    NOTIFYME_CODE: skill 'Notify Me' (gratis; el Echo parpadea en amarillo y se lee con '¿Alexa, qué notificaciones tengo?').
+    """
+    ctx = _ssl_context()
+    tries = []
+    if os.environ.get("VOICEMONKEY_TOKEN") and os.environ.get("VOICEMONKEY_DEVICE"):
+        body = {"token": os.environ["VOICEMONKEY_TOKEN"], "device": os.environ["VOICEMONKEY_DEVICE"],
+                "speech": text, "language": os.environ.get("ALEXA_LANGUAGE", "es-ES")}
+        if os.environ.get("ALEXA_VOICE"):
+            body["voice"] = os.environ["ALEXA_VOICE"]
+        tries.append(("Voice Monkey", urllib.request.Request(
+            "https://api-v3.voicemonkey.io/announce", data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"}, method="POST")))
+    if os.environ.get("NOTIFYME_CODE"):
+        tries.append(("Notify Me", urllib.request.Request(
+            "https://api.notifymyecho.com/v1/NotifyMe",
+            data=json.dumps({"notification": text, "accessCode": os.environ["NOTIFYME_CODE"]}).encode(),
+            headers={"Content-Type": "application/json"}, method="POST")))
+    ok = True
+    for name, req in tries:
+        try:
+            with urllib.request.urlopen(req, timeout=20, context=ctx) as r:
+                if r.status != 200:
+                    print(f"Alexa ({name}): HTTP {r.status}", file=sys.stderr)
+                    ok = False
+        except Exception as e:  # 401, 429, red caída...: se informa y se sigue
+            print(f"Alexa ({name}): {e}", file=sys.stderr)
+            ok = False
+    return ok
+
+
 # ---------- Main ----------
 
 def main():

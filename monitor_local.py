@@ -16,7 +16,7 @@ from pathlib import Path
 
 import netscan
 import store
-from monitor import APPLIANCES, send_whatsapp, step
+from monitor import APPLIANCES, send_alexa, send_whatsapp, step
 
 HERE = Path(__file__).parent
 STATE_FILE = HERE / "state_local.json"
@@ -47,8 +47,14 @@ def dashboard_url():
     return f"http://{host}:{os.environ.get('DASHBOARD_PORT', '8765')}"
 
 
-def notify(text):
-    return send_whatsapp(text, link=dashboard_url())
+def notify(text, event=None):
+    """WhatsApp (con enlace al dashboard) y, si está configurado, Alexa. Devuelve si el WhatsApp salió.
+    Alexa solo habla en los eventos de ALEXA_EVENTS (por defecto 'finished'; 'started,finished' para ambos);
+    así el plan gratis de Voice Monkey (200 peticiones/mes) da de sobra."""
+    ok = send_whatsapp(text, link=dashboard_url())
+    if event is None or event in os.environ.get("ALEXA_EVENTS", "finished").replace(" ", "").split(","):
+        send_alexa(text)
+    return ok
 
 
 def start_dashboard():
@@ -152,7 +158,7 @@ async def main():
             if event:
                 text = f"{cfg['label']} ha {'empezado' if event == 'started' else 'terminado'}"
                 print(f"{key}: {watts:.1f} W -> {text}", flush=True)
-                if not notify(text):
+                if not notify(text, event):
                     continue  # no se pudo avisar: se reintenta en la siguiente vuelta
             if new != states.get(key):
                 states[key] = new
