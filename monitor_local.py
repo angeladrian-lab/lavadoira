@@ -36,7 +36,12 @@ def load_env():
 
 
 def dashboard_url():
-    return f"http://{netscan.local_ip()}:{os.environ.get('DASHBOARD_PORT', '8765')}"
+    """WhatsApp solo convierte en enlace pulsable las direcciones con dominio, no las IP numéricas.
+    sslip.io resuelve 192-168-68-137.sslip.io -> 192.168.68.137 (la petición va a tu red, no sale a internet).
+    DASHBOARD_HOST en .env fuerza otro nombre (p. ej. la IP: DASHBOARD_HOST=192.168.68.137)."""
+    ip = netscan.local_ip()
+    host = os.environ.get("DASHBOARD_HOST") or f"{ip.replace('.', '-')}.sslip.io"
+    return f"http://{host}:{os.environ.get('DASHBOARD_PORT', '8765')}"
 
 
 def notify(text):
