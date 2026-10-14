@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import urllib.parse
+import ssl
 import urllib.request
 from pathlib import Path
 
@@ -156,12 +157,17 @@ async def diagnose():
 def send_whatsapp(text):
     """WHATSAPP_RECIPIENTS = 'telefono1:apikey1,telefono2:apikey2' (telefono con prefijo, p. ej. 34600111222)."""
     failures = []
+    try:  # el Python de python.org en macOS no trae certificados raíz: se usan los de certifi
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        context = None
     for pair in os.environ["WHATSAPP_RECIPIENTS"].split(","):
         phone, key = pair.strip().split(":")
         url = "https://api.callmebot.com/whatsapp.php?" + urllib.parse.urlencode(
             {"phone": phone, "text": text, "apikey": key})
         try:
-            with urllib.request.urlopen(url, timeout=30) as r:
+            with urllib.request.urlopen(url, timeout=30, context=context) as r:
                 if r.status != 200:
                     failures.append(f"{phone}: HTTP {r.status}")
         except Exception as e:
