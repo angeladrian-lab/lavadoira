@@ -1,4 +1,4 @@
-"""Dashboard local: http://127.0.0.1:8765  (solo accesible desde este ordenador).
+"""Dashboard local: http://<ip-del-mac>:8765  (accesible desde la red de casa; sin contraseña).
 
 Uso:  .venv/bin/python dashboard.py [puerto]
 Lee history.db (lo llenan monitor_local.py, import_xls.py y backfill.py).
@@ -90,5 +90,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
-    print(f"Dashboard en http://127.0.0.1:{port}  (Ctrl+C para parar)", flush=True)
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    print(f"Dashboard en http://127.0.0.1:{port} y en la red local (Ctrl+C para parar)", flush=True)
+    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()

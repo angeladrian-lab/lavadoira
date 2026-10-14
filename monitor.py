@@ -154,8 +154,10 @@ async def diagnose():
 
 # ---------- WhatsApp (CallMeBot) ----------
 
-def send_whatsapp(text):
+def send_whatsapp(text, link=None):
     """WHATSAPP_RECIPIENTS = 'telefono1:apikey1,telefono2:apikey2' (telefono con prefijo, p. ej. 34600111222)."""
+    if link:
+        text = f"{text}\n{link}"
     failures = []
     try:  # el Python de python.org en macOS no trae certificados raíz: se usan los de certifi
         import certifi
