@@ -1,8 +1,9 @@
 name: Aviso lavadora y secadora
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
+  # PAUSADO hasta que la lectura de potencia funcione (evita correos por cada fallo):
+  # schedule:
+  #   - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       diagnose:
