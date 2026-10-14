@@ -106,13 +106,14 @@ async def main():
     miss = sorted(set(wanted) - set(devices))
     arranque = "Monitor de lavadora y secadora arrancado." + (
         f" ⚠️ No encuentro: {', '.join(miss)}." if miss else "")
-    notify(arranque)
+    print("Aviso de arranque enviado" if notify(arranque) else "Aviso de arranque NO enviado", flush=True)
 
     last_discovery = time.time()
     while True:
         if len(devices) < len(wanted) and time.time() - last_discovery > RETRY_DISCOVERY_SECONDS:
             devices = {**devices, **await discover(client, {k: v for k, v in wanted.items() if k not in devices}, [])}
             last_discovery = time.time()
+        readings = {}
         for key, cfg in APPLIANCES.items():
             if key not in devices:
                 continue
@@ -124,6 +125,7 @@ async def main():
                 del devices[key]
                 last_discovery = 0
                 continue
+            readings[key] = watts
             store.add_many([(key, int(time.time()), watts)])  # histórico para el dashboard
             new, event = step(states.get(key), watts, time.time(), cfg)
             new = {**new, "ip": ip}
@@ -135,6 +137,8 @@ async def main():
             if new != states.get(key):
                 states[key] = new
                 STATE_FILE.write_text(json.dumps(states, indent=2) + "\n")
+        if readings:
+            print(time.strftime("%H:%M:%S"), " · ".join(f"{k} {w:.0f} W" for k, w in readings.items()), flush=True)
         await asyncio.sleep(POLL_SECONDS)
 
 
