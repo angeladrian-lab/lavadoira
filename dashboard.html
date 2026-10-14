@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lavadora y secadora</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #1c2230; --muted: #6b7385; --line: #e3e6ec;
+    --washer: #2f6fed; --dryer: #e8890c; --ok: #1f9d6b; --warn: #c7452d; --track: #e9ecf2;
+    --shadow: 0 1px 2px rgba(20,30,50,.06), 0 4px 16px rgba(20,30,50,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f131b; --card: #171c27; --ink: #e8ebf2; --muted: #8e97ab; --line: #262d3b;
+      --washer: #5b93ff; --dryer: #f5a53a; --ok: #3ccf91; --warn: #ff7a62; --track: #252c3a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .seg { display: inline-flex; background: var(--track); border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 8px;
+    font: inherit; font-size: 13px; cursor: pointer; }
+  .seg button.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+  .live { position: relative; overflow: hidden; }
+  .live::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--c); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .name { font-weight: 650; font-size: 17px; }
+  .pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--track); color: var(--muted); }
+  .pill.running { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+  .pill.offline { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .big { font-size: 38px; font-weight: 700; letter-spacing: -.02em; margin: 10px 0 2px; font-variant-numeric: tabular-nums; }
+  .big small { font-size: 16px; font-weight: 500; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .bar { height: 12px; background: var(--track); border-radius: 999px; overflow: hidden; margin: 14px 0 8px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--c); border-radius: 999px; transition: width .6s ease; }
+  .bar.over > i { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.28) 0 8px, transparent 8px 16px);
+    background-color: var(--c); animation: slide 1.2s linear infinite; background-size: 22px 22px; }
+  @keyframes slide { to { background-position: 22px 0; } }
+  .eta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 14px; }
+  .eta b { font-variant-numeric: tabular-nums; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 16px 0; }
+  .kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .kpi .s { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--c); }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .chart { position: relative; height: 300px; }
+  .chart.short { height: 240px; }
+  .stack { display: grid; gap: 16px; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  .empty { text-align: center; color: var(--muted); padding: 24px 0; }
+  @media (max-width: 820px) { .grid2, .kpis { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .grid2, .kpis { grid-template-columns: 1fr; } .big { font-size: 32px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Lavadora y secadora</h1>
+      <div class="sub" id="updated">Cargando…</div>
+    </div>
+    <div class="seg" id="range">
+      <button data-d="1">24 h</button><button data-d="7" class="on">7 días</button>
+      <button data-d="30">30 días</button><button data-d="0">Todo</button>
+    </div>
+  </header>
+
+  <section class="grid2" id="live"></section>
+  <section class="kpis" id="kpis"></section>
+
+  <div class="stack">
+    <div class="card"><h2>Potencia en el tiempo</h2><div class="chart"><canvas id="cPower"></canvas></div></div>
+    <div class="grid2">
+      <div class="card"><h2>Ciclos por día</h2><div class="chart short"><canvas id="cDaily"></canvas></div></div>
+      <div class="card"><h2>A qué hora se ponen en marcha</h2><div class="chart short"><canvas id="cHours"></canvas></div></div>
+    </div>
+    <div class="card"><h2>Últimos ciclos</h2><div id="table"></div></div>
+  </div>
+</div>
+
+<script>
+const NAMES = { lavadora: "Lavadora", secadora: "Secadora" };
+const COLORS = { lavadora: "--washer", secadora: "--dryer" };
+let days = 7, data = null, charts = {};
+
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmtDur = s => {
+  if (s == null) return "—";
+  s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h} h ${String(m).padStart(2, "0")} min` : `${m} min`;
+};
+const fmtTime = ts => new Date(ts * 1000).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+const fmtDay = ts => new Date(ts * 1000).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+const fmtDateTime = ts => `${fmtDay(ts)} ${fmtTime(ts)}`;
+const fmtKwh = wh => (wh / 1000).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
+
+/* ---------- tarjetas en vivo ---------- */
+function liveCard(name, a) {
+  const c = `var(${COLORS[name]})`;
+  let pill = "Parada", pillCls = "", body = "";
+  if (a.status === "running") {
+    pill = "En marcha"; pillCls = "running";
+    body = `
+      <div class="big"><span data-w>${a.current_w.toLocaleString("es-ES")}</span> <small>W</small></div>
+      <div class="muted">Lleva <b data-elapsed="${a.cycle_start}">${fmtDur(a.elapsed)}</b> en marcha · desde las ${fmtTime(a.cycle_start)}</div>`;
+    if (a.expected) {
+      const pct = Math.round(a.progress * 100);
+      const eta = a.over
+        ? `<span><b>Más largo de lo habitual</b></span><span class="muted">termina en cuanto baje de 3 W</span>`
+        : `<span>Quedan <b data-remaining="${a.cycle_start + a.expected}">~${fmtDur(a.remaining)}</b></span>
+           <span class="muted">termina sobre las <b>${fmtTime(a.cycle_start + a.expected)}</b></span>`;
+      body += `
+        <div class="bar ${a.over ? "over" : ""}"><i style="width:${pct}%"></i></div>
+        <div class="eta">${eta}</div>
+        <div class="note">${a.over ? "" : pct + " % · "}Estimación según ${a.typical.n} ciclos anteriores: suelen durar ${fmtDur(a.range[0])}–${fmtDur(a.range[1])} (mediana ${fmtDur(a.expected)}).</div>`;
+    } else {
+      body += `<div class="bar over"><i style="width:60%"></i></div>
+        <div class="note">Aún no hay ciclos anteriores suficientes para estimar cuánto queda.</div>`;
+    }
+  } else if (a.status === "idle") {
+    body = `<div class="big"><span>${a.current_w.toLocaleString("es-ES")}</span> <small>W</small></div>
+      <div class="muted">${a.last_cycle ? `Último ciclo terminó a las ${fmtTime(a.last_cycle.end)} (${fmtDay(a.last_cycle.end)}) · duró ${fmtDur(a.last_cycle.duration)}` : "Sin ciclos registrados todavía"}</div>`;
+  } else {
+    pill = "Sin datos recientes"; pillCls = "offline";
+    const ago = a.last_reading_age != null ? `Última lectura hace ${fmtDur(a.last_reading_age)}.` : "";
+    body = `<div class="big"><span>—</span> <small>W</small></div>
+      <div class="muted">${ago} ¿Está en marcha <code>monitor_local.py</code>?</div>
+      ${a.last_cycle ? `<div class="note">Último ciclo registrado: ${fmtDateTime(a.last_cycle.end)} · ${fmtDur(a.last_cycle.duration)}</div>` : ""}`;
+  }
+  return el(`<div class="card live" style="--c:${c}">
+    <div class="row"><span class="name">${NAMES[name]}</span><span class="pill ${pillCls}">${pill}</span></div>${body}</div>`);
+}
+
+function renderLive() {
+  const box = document.getElementById("live"); box.replaceChildren();
+  for (const n of Object.keys(NAMES)) box.append(liveCard(n, data.appliances[n]));
+}
+
+/* contadores que avanzan cada segundo sin pedir datos */
+setInterval(() => {
+  if (!data) return;
+  const now = Date.now() / 1000;
+  document.querySelectorAll("[data-elapsed]").forEach(e => e.textContent = fmtDur(now - e.dataset.elapsed));
+  document.querySelectorAll("[data-remaining]").forEach(e => {
+    const left = e.dataset.remaining - now; e.textContent = left > 0 ? "~" + fmtDur(left) : "terminando…";
+  });
+}, 1000);
+
+/* ---------- KPIs ---------- */
+function renderKpis() {
+  const box = document.getElementById("kpis"); box.replaceChildren();
+  const label = days === 0 ? "todo el histórico" : days === 1 ? "últimas 24 h" : `últimos ${days} días`;
+  const tot = n => data.stats[n];
+  const items = [
+    ["Ciclos", n => tot(n).cycles, n => `${label}`],
+    ["Tiempo en marcha", n => fmtDur(tot(n).run_seconds), n => `${tot(n).cycles ? "≈ " + fmtDur(tot(n).run_seconds / tot(n).cycles) + " por ciclo" : "—"}`],
+    ["Duración media", n => fmtDur(tot(n).avg_duration), n => "ciclos terminados"],
+    ["Energía", n => fmtKwh(tot(n).kwh * 1000) + " kWh", n => "consumida en ciclos"],
+  ];
+  for (const [title, val, sub] of items) {
+    const html = ["lavadora", "secadora"].map(n => `
+      <div><span class="dot" style="--c:var(${COLORS[n]})"></span><b class="v" style="font-size:20px">${val(n)}</b>
+      <div class="s">${NAMES[n]} · ${sub(n)}</div></div>`).join("");
+    box.append(el(`<div class="card kpi"><div class="l">${title}</div><div style="margin-top:6px;display:grid;gap:8px">${html}</div></div>`));
+  }
+}
+
+/* ---------- gráficos ---------- */
+function mk(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+const baseOpts = () => ({
+  responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+  plugins: { legend: { labels: { color: css("--muted"), usePointStyle: true, boxWidth: 8 } } },
+  scales: {}
+});
+const gridCol = () => css("--line");
+
+function cyclesShade(chartData) {
+  // sombrea los ciclos detectados detrás de la línea
+  return { id: "shade", beforeDatasetsDraw(ch) {
+    const { ctx, chartArea: a, scales: { x } } = ch;
+    ctx.save();
+    for (const c of chartData.cycles) {
+      const x0 = Math.max(x.getPixelForValue(c.start * 1000), a.left), x1 = Math.min(x.getPixelForValue(c.end * 1000), a.right);
+      if (x1 <= a.left || x0 >= a.right) continue;
+      ctx.fillStyle = css(COLORS[c.appliance]) + "1c";
+      ctx.fillRect(x0, a.top, Math.max(x1 - x0, 1), a.bottom - a.top);
+    }
+    ctx.restore();
+  } };
+}
+
+function renderCharts() {
+  const hasRange = days === 1;
+  const o = baseOpts();
+  o.interaction = { mode: "nearest", axis: "x", intersect: false };
+  o.scales = {
+    x: { type: "linear", grid: { color: gridCol() }, ticks: { color: css("--muted"), maxTicksLimit: 8,
+      callback: v => { const d = new Date(v); return hasRange
+        ? d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) + (days && days <= 7 ? " " + d.getHours() + "h" : ""); } } },
+    y: { beginAtZero: true, grid: { color: gridCol() }, ticks: { color: css("--muted") }, title: { display: true, text: "W", color: css("--muted") } }
+  };
+  o.plugins.tooltip = { callbacks: {
+    title: items => fmtDateTime(items[0].parsed.x / 1000),
+    label: i => ` ${i.dataset.label}: ${Math.round(i.parsed.y).toLocaleString("es-ES")} W` } };
+  mk("cPower", { type: "line", plugins: [cyclesShade(data)], options: o, data: { datasets: Object.keys(NAMES).map(n => ({
+    label: NAMES[n], data: data.series[n].map(([t, w]) => ({ x: t * 1000, y: w })),
+    borderColor: css(COLORS[n]), backgroundColor: css(COLORS[n]) + "26", borderWidth: 1.6, pointRadius: 0, fill: true, tension: .15 })) } });
+
+  const dd = data.daily;
+  const od = baseOpts();
+  od.scales = { x: { stacked: true, grid: { display: false }, ticks: { color: css("--muted") } },
+    y: { stacked: true, beginAtZero: true, grid: { color: gridCol() }, ticks: { color: css("--muted"), precision: 0 } } };
+  od.plugins.tooltip = { callbacks: { label: i => ` ${i.dataset.label}: ${i.parsed.y} ciclos · ${fmtKwh(dd[i.dataIndex][i.dataset.key].wh)} kWh` } };
+  mk("cDaily", { type: "bar", options: od, data: {
+    labels: dd.map(d => new Date(d.date + "T12:00").toLocaleDateString("es-ES", { day: "numeric", month: "short" })),
+    datasets: Object.keys(NAMES).map(n => ({ label: NAMES[n], key: n, data: dd.map(d => d[n].n),
+      backgroundColor: css(COLORS[n]), borderRadius: 4, maxBarThickness: 36 })) } });
+
+  const oh = baseOpts();
+  oh.scales = { x: { grid: { display: false }, ticks: { color: css("--muted") } },
+    y: { beginAtZero: true, grid: { color: gridCol() }, ticks: { color: css("--muted"), precision: 0 } } };
+  mk("cHours", { type: "bar", options: oh, data: {
+    labels: [...Array(24).keys()].map(h => h + "h"),
+    datasets: Object.keys(NAMES).map(n => ({ label: NAMES[n], data: data.hours[n],
+      backgroundColor: css(COLORS[n]), borderRadius: 3 })) } });
+}
+
+/* ---------- tabla ---------- */
+function renderTable() {
+  const box = document.getElementById("table");
+  const rows = data.cycles.slice(0, 40);
+  if (!rows.length) { box.innerHTML = `<div class="empty">No hay ciclos en este periodo.</div>`; return; }
+  box.innerHTML = `<table><thead><tr><th>Máquina</th><th>Inicio</th><th>Fin</th><th>Duración</th><th>Energía</th><th>Pico</th></tr></thead><tbody>` +
+    rows.map(c => `<tr>
+      <td><span class="dot" style="--c:var(${COLORS[c.appliance]})"></span>${NAMES[c.appliance]}</td>
+      <td>${fmtDateTime(c.start)}</td>
+      <td>${c.ongoing ? '<span class="pill running">en marcha</span>' : fmtTime(c.end)}</td>
+      <td>${fmtDur(c.duration)}</td><td>${fmtKwh(c.wh)} kWh</td><td>${c.peak.toLocaleString("es-ES")} W</td></tr>`).join("") +
+    `</tbody></table>`;
+}
+
+/* ---------- carga ---------- */
+async function load() {
+  try {
+    const r = await fetch(`/api/data?days=${days}`, { cache: "no-store" });
+    data = await r.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById("updated").textContent = "Actualizado a las " + fmtTime(data.now) + " · se refresca solo cada 15 s";
+    renderLive(); renderKpis(); renderCharts(); renderTable();
+  } catch (e) {
+    document.getElementById("updated").textContent = "Error cargando datos: " + e.message;
+  }
+}
+document.getElementById("range").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  days = +b.dataset.d;
+  document.querySelectorAll("#range button").forEach(x => x.classList.toggle("on", x === b));
+  load();
+});
+load(); setInterval(load, 15000);
+</script>
+</body>
+</html>

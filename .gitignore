@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 state_local.json
 avisos.log
+history.db
+history.db-*

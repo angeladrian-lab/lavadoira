@@ -10,6 +10,7 @@ import os
 import time
 from pathlib import Path
 
+import store
 from monitor import APPLIANCES, send_whatsapp, step
 
 HERE = Path(__file__).parent
@@ -64,6 +65,7 @@ async def main():
                 except BaseException as e2:
                     print(f"  reconexión fallida: {e2}", flush=True)
                 continue
+            store.add_many([(key, int(time.time()), watts)])  # histórico para el dashboard
             new, event = step(states.get(key), watts, time.time(), cfg)
             if event:
                 text = f"{cfg['label']} ha {'empezado' if event == 'started' else 'terminado'}"

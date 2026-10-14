@@ -22,3 +22,11 @@ y mostrar la potencia en bruto. Después se ejecuta solo cada 5 min.
 
 ## Ajuste
 Umbrales en `APPLIANCES` de `monitor.py` (derivados de tus Excel): start_w, idle_w, idle_min.
+
+## Ejecución local (recomendada)
+- `monitor_local.py`: lee los P110 por la wifi cada 30 s, avisa por WhatsApp y guarda el histórico en `history.db`.
+- `import_xls.py`: importa los Excel exportados de la app Tapo (`Potencia-*.xls`) al histórico.
+- `backfill.py [dias]`: recupera del propio enchufe el histórico de potencia (cada 5 min).
+- `dashboard.py`: web local en http://127.0.0.1:8765 con estado en vivo, barra de progreso con tiempo restante
+  estimado (según la duración de ciclos anteriores), gráficos, ciclos por día, horas de uso y tabla de ciclos.
+Configuración en `.env` (ver `.env.example`). El workflow de GitHub Actions está pausado.
