@@ -20,10 +20,11 @@ STATE_FILE = Path(__file__).with_name("state.json")
 
 # Umbrales deducidos de los Excel (potencia en W, standby 0-2 W, ciclo con picos de 1800-2200 W).
 # start_w: por encima de esto se considera "en marcha". idle_w: por debajo (o igual) se considera "parado".
-# idle_min: minutos seguidos parado para dar el ciclo por terminado.
+# idle_min: minutos seguidos parado para dar el ciclo por terminado (0,25 = 15 s: salta con la 2.ª lectura seguida
+# en reposo; subirlo evita falsos 'terminado' en las pausas dentro de un ciclo).
 APPLIANCES = {
-    "lavadora": {"label": "La lavadora", "alias_env": "WASHER_ALIAS", "start_w": 10, "idle_w": 3, "idle_min": 10},
-    "secadora": {"label": "La secadora", "alias_env": "DRYER_ALIAS", "start_w": 50, "idle_w": 3, "idle_min": 10},
+    "lavadora": {"label": "La lavadora", "alias_env": "WASHER_ALIAS", "start_w": 10, "idle_w": 3, "idle_min": 0.25},
+    "secadora": {"label": "La secadora", "alias_env": "DRYER_ALIAS", "start_w": 50, "idle_w": 3, "idle_min": 0.25},
 }
 
 

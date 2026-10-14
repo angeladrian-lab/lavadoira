@@ -1,11 +1,10 @@
 """Detección de ciclos y estimación del tiempo restante a partir del histórico."""
 import statistics
 
-# Mismos umbrales que monitor.APPLIANCES (se duplican para que el dashboard no dependa del monitor).
-CFG = {
-    "lavadora": {"start_w": 10, "idle_w": 3, "idle_min": 10},
-    "secadora": {"start_w": 50, "idle_w": 3, "idle_min": 10},
-}
+# Mismos umbrales que el monitor (una sola fuente de verdad: monitor.APPLIANCES).
+from monitor import APPLIANCES
+
+CFG = {k: {x: v[x] for x in ("start_w", "idle_w", "idle_min")} for k, v in APPLIANCES.items()}
 MAX_GAP = 15 * 60  # más de 15 min sin lecturas = hueco de datos: el ciclo se corta ahí
 STALE = 5 * 60  # sin lecturas desde hace más de esto = no sabemos si sigue en marcha
 

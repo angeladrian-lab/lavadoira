@@ -20,7 +20,7 @@ from monitor import APPLIANCES, send_whatsapp, step
 
 HERE = Path(__file__).parent
 STATE_FILE = HERE / "state_local.json"
-POLL_SECONDS = 30
+POLL_SECONDS = 20
 RETRY_DISCOVERY_SECONDS = 60
 PROBE_TIMEOUT = 15  # segundos por intento; con poca cobertura wifi un enchufe puede tardar
 PROBE_ATTEMPTS = 2
