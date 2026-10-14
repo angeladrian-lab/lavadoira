@@ -22,7 +22,10 @@ HERE = Path(__file__).parent
 STATE_FILE = HERE / "state_local.json"
 POLL_SECONDS = 30
 RETRY_DISCOVERY_SECONDS = 60
-PROBE_TIMEOUT = 10
+PROBE_TIMEOUT = 15  # segundos por intento; con poca cobertura wifi un enchufe puede tardar
+PROBE_ATTEMPTS = 2
+MAX_READ_FAILURES = 3  # lecturas fallidas seguidas antes de volver a buscar el enchufe
+STARTUP_WAIT = 60  # segundos extra esperando enchufes antes de avisar de que falta alguno
 
 
 def load_env():
@@ -63,12 +66,14 @@ def start_dashboard():
 
 async def probe(client, ip):
     """Devuelve (handler, nickname) si la IP es un P110 de esta cuenta; si no, None."""
-    try:
-        dev = await asyncio.wait_for(client.p110(ip), PROBE_TIMEOUT)
-        info = await asyncio.wait_for(dev.get_device_info(), PROBE_TIMEOUT)
-        return dev, info.nickname.strip().lower(), ip
-    except Exception:  # router, extensor u otro aparato: se ignora
-        return None
+    for attempt in range(PROBE_ATTEMPTS):
+        try:
+            dev = await asyncio.wait_for(client.p110(ip), PROBE_TIMEOUT)
+            info = await asyncio.wait_for(dev.get_device_info(), PROBE_TIMEOUT)
+            return dev, info.nickname.strip().lower(), ip
+        except Exception:  # router, extensor u otro aparato (o wifi flojo): se reintenta y si no, se ignora
+            await asyncio.sleep(1)
+    return None
 
 
 async def discover(client, wanted, hints):
@@ -106,6 +111,11 @@ async def main():
     hints += [s["ip"] for s in states.values() if isinstance(s, dict) and s.get("ip")]
 
     devices = await discover(client, wanted, hints)
+    deadline = time.time() + STARTUP_WAIT
+    while len(devices) < len(wanted) and time.time() < deadline:  # wifi flojo: se espera antes de dar por perdido
+        print(f"Faltan: {sorted(set(wanted) - set(devices))}; sigo buscando…", flush=True)
+        await asyncio.sleep(5)
+        devices.update(await discover(client, {k: v for k, v in wanted.items() if k not in devices}, hints))
     for key, (_, ip) in devices.items():
         print(f"{key}: {ip}", flush=True)
     miss = sorted(set(wanted) - set(devices))
@@ -114,6 +124,7 @@ async def main():
     print("Aviso de arranque enviado" if notify(arranque) else "Aviso de arranque NO enviado", flush=True)
 
     last_discovery = time.time()
+    failures = {k: 0 for k in wanted}
     while True:
         if len(devices) < len(wanted) and time.time() - last_discovery > RETRY_DISCOVERY_SECONDS:
             devices = {**devices, **await discover(client, {k: v for k, v in wanted.items() if k not in devices}, [])}
@@ -125,11 +136,15 @@ async def main():
             dev, ip = devices[key]
             try:
                 watts = (await dev.get_current_power()).current_power
-            except Exception as e:  # sin respuesta: la IP pudo cambiar, se vuelve a buscar
-                print(f"{key}: sin lectura en {ip} ({type(e).__name__}); busco de nuevo", flush=True)
-                del devices[key]
-                last_discovery = 0
+            except Exception as e:
+                failures[key] += 1
+                print(f"{key}: sin lectura en {ip} ({type(e).__name__}) [{failures[key]}/{MAX_READ_FAILURES}]", flush=True)
+                if failures[key] >= MAX_READ_FAILURES:  # varias seguidas: la IP pudo cambiar, se vuelve a buscar
+                    print(f"{key}: busco de nuevo el enchufe", flush=True)
+                    del devices[key]
+                    last_discovery = 0
                 continue
+            failures[key] = 0
             readings[key] = watts
             store.add_many([(key, int(time.time()), watts)])  # histórico para el dashboard
             new, event = step(states.get(key), watts, time.time(), cfg)
